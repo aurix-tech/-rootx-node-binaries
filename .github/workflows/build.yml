@@ -1,0 +1,136 @@
+name: Build Node.js for Android
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build-arm64:
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+
+      - name: Download Node Source
+        run: |
+          wget https://nodejs.org/dist/v20.11.0/node-v20.11.0.tar.gz
+          tar -xzf node-v20.11.0.tar.gz
+
+      - name: Build ARM64
+        run: |
+          cd node-v20.11.0
+          export NDK=$ANDROID_NDK_ROOT
+          export TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
+          export CC=$TOOLCHAIN/bin/aarch64-linux-android21-clang
+          export CXX=$TOOLCHAIN/bin/aarch64-linux-android21-clang++
+          export AR=$TOOLCHAIN/bin/llvm-ar
+          export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
+          ./configure \
+            --dest-cpu=arm64 \
+            --dest-os=android \
+            --cross-compiling \
+            --without-intl \
+            --without-inspector \
+            --prefix=/usr/local
+          make -j$(nproc)
+          make install DESTDIR=$PWD/output
+          zip -r ../node-v20-android-arm64.zip output/
+
+      - name: Release ARM64
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v20.11.0
+          name: Node.js v20 Android Binaries
+          files: node-v20-android-arm64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-arm:
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+
+      - name: Download Node Source
+        run: |
+          wget https://nodejs.org/dist/v20.11.0/node-v20.11.0.tar.gz
+          tar -xzf node-v20.11.0.tar.gz
+
+      - name: Build ARM
+        run: |
+          cd node-v20.11.0
+          export NDK=$ANDROID_NDK_ROOT
+          export TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
+          export CC=$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang
+          export CXX=$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang++
+          export AR=$TOOLCHAIN/bin/llvm-ar
+          export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
+          ./configure \
+            --dest-cpu=arm \
+            --dest-os=android \
+            --cross-compiling \
+            --without-intl \
+            --without-inspector \
+            --prefix=/usr/local
+          make -j$(nproc)
+          make install DESTDIR=$PWD/output
+          zip -r ../node-v20-android-arm.zip output/
+
+      - name: Release ARM
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v20.11.0
+          name: Node.js v20 Android Binaries
+          files: node-v20-android-arm.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-x64:
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+
+      - name: Download Node Source
+        run: |
+          wget https://nodejs.org/dist/v20.11.0/node-v20.11.0.tar.gz
+          tar -xzf node-v20.11.0.tar.gz
+
+      - name: Build x64
+        run: |
+          cd node-v20.11.0
+          export NDK=$ANDROID_NDK_ROOT
+          export TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
+          export CC=$TOOLCHAIN/bin/x86_64-linux-android21-clang
+          export CXX=$TOOLCHAIN/bin/x86_64-linux-android21-clang++
+          export AR=$TOOLCHAIN/bin/llvm-ar
+          export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
+          ./configure \
+            --dest-cpu=x64 \
+            --dest-os=android \
+            --cross-compiling \
+            --without-intl \
+            --without-inspector \
+            --openssl-no-asm \
+            --prefix=/usr/local
+          make -j$(nproc)
+          make install DESTDIR=$PWD/output
+          zip -r ../node-v20-android-x64.zip output/
+
+      - name: Release x64
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v20.11.0
+          name: Node.js v20 Android Binaries
+          files: node-v20-android-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
