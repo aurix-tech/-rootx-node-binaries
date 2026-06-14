@@ -13,18 +13,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential \
-            python3 \
-            python3-pip \
-            wget unzip zip
+            build-essential python3 python3-pip \
+            wget unzip zip git
 
       - name: Setup Android NDK
         run: |
           wget -q https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
           unzip -q android-ndk-r25c-linux.zip -d $HOME
-          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r25c" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$HOME/android-ndk-r25c" >> $GITHUB_ENV
-          echo "ANDROID_NDK=$HOME/android-ndk-r25c" >> $GITHUB_ENV
+          echo "NDK=$HOME/android-ndk-r25c" >> $GITHUB_ENV
 
       - name: Download Node.js Source
         run: |
@@ -35,7 +31,7 @@ jobs:
         run: |
           cd node-v20.11.0
           
-          TOOLCHAIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
+          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin
           
           export CC="$TOOLCHAIN/aarch64-linux-android21-clang"
           export CXX="$TOOLCHAIN/aarch64-linux-android21-clang++"
@@ -43,9 +39,10 @@ jobs:
           export RANLIB="$TOOLCHAIN/llvm-ranlib"
           export LINK="$CXX"
           
-          # GYP ko NDK path manually dena
-          export GYP_DEFINES="android_ndk_path=$ANDROID_NDK_ROOT"
+          # Correct way — GYP_DEFINES mein set karo
+          export GYP_DEFINES="android_ndk_path=$NDK"
           
+          # --android-ndk-path flag bilkul mat dena
           python3 configure.py \
             --dest-cpu=arm64 \
             --dest-os=android \
@@ -53,32 +50,33 @@ jobs:
             --without-intl \
             --without-inspector \
             --without-node-snapshot \
-            --without-node-code-cache \
-            --android-ndk-path=$ANDROID_NDK_ROOT
+            --without-node-code-cache
           
-          make -j$(nproc) 2>&1 | tail -50
+          make -j$(nproc)
           
           mkdir -p ../output/bin
-          mkdir -p ../output/lib
+          mkdir -p ../output/lib/node_modules
           
           cp out/Release/node ../output/bin/node
-          cp -r lib ../output/ 2>/dev/null || true
-          cp -r deps/npm ../output/lib/node_modules/ 2>/dev/null || true
+          cp -r deps/npm ../output/lib/node_modules/npm 2>/dev/null || true
           
-          # npm script
-          cat > ../output/bin/npm << 'EOF'
-          #!/system/bin/sh
-          exec "$(dirname "$0")/node" "$(dirname "$0")/../lib/node_modules/npm/bin/npm-cli.js" "$@"
-          EOF
+          cat > ../output/bin/npm << 'NPMEOF'
+#!/system/bin/sh
+NODE="$(dirname "$0")/node"
+NPM="$(dirname "$0")/../lib/node_modules/npm/bin/npm-cli.js"
+exec "$NODE" "$NPM" "$@"
+NPMEOF
           
-          # npx script
-          cat > ../output/bin/npx << 'EOF'
-          #!/system/bin/sh
-          exec "$(dirname "$0")/node" "$(dirname "$0")/../lib/node_modules/npm/bin/npx-cli.js" "$@"
-          EOF
+          cat > ../output/bin/npx << 'NPXEOF'
+#!/system/bin/sh
+NODE="$(dirname "$0")/node"
+NPX="$(dirname "$0")/../lib/node_modules/npm/bin/npx-cli.js"
+exec "$NODE" "$NPX" "$@"
+NPXEOF
           
           chmod +x ../output/bin/npm
           chmod +x ../output/bin/npx
+          chmod +x ../output/bin/node
           
           cd ..
           zip -r node-v20-android-arm64.zip output/
@@ -106,9 +104,7 @@ jobs:
         run: |
           wget -q https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
           unzip -q android-ndk-r25c-linux.zip -d $HOME
-          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r25c" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$HOME/android-ndk-r25c" >> $GITHUB_ENV
-          echo "ANDROID_NDK=$HOME/android-ndk-r25c" >> $GITHUB_ENV
+          echo "NDK=$HOME/android-ndk-r25c" >> $GITHUB_ENV
 
       - name: Download Node.js Source
         run: |
@@ -119,14 +115,14 @@ jobs:
         run: |
           cd node-v20.11.0
           
-          TOOLCHAIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
+          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin
           
           export CC="$TOOLCHAIN/armv7a-linux-androideabi21-clang"
           export CXX="$TOOLCHAIN/armv7a-linux-androideabi21-clang++"
           export AR="$TOOLCHAIN/llvm-ar"
           export RANLIB="$TOOLCHAIN/llvm-ranlib"
           export LINK="$CXX"
-          export GYP_DEFINES="android_ndk_path=$ANDROID_NDK_ROOT"
+          export GYP_DEFINES="android_ndk_path=$NDK"
           
           python3 configure.py \
             --dest-cpu=arm \
@@ -135,25 +131,28 @@ jobs:
             --without-intl \
             --without-inspector \
             --without-node-snapshot \
-            --without-node-code-cache \
-            --android-ndk-path=$ANDROID_NDK_ROOT
+            --without-node-code-cache
           
-          make -j$(nproc) 2>&1 | tail -50
+          make -j$(nproc)
           
           mkdir -p ../output/bin
+          mkdir -p ../output/lib/node_modules
           cp out/Release/node ../output/bin/node
-          cp -r lib ../output/ 2>/dev/null || true
-          cp -r deps/npm ../output/lib/node_modules/ 2>/dev/null || true
+          cp -r deps/npm ../output/lib/node_modules/npm 2>/dev/null || true
           
-          cat > ../output/bin/npm << 'EOF'
-          #!/system/bin/sh
-          exec "$(dirname "$0")/node" "$(dirname "$0")/../lib/node_modules/npm/bin/npm-cli.js" "$@"
-          EOF
-          cat > ../output/bin/npx << 'EOF'
-          #!/system/bin/sh
-          exec "$(dirname "$0")/node" "$(dirname "$0")/../lib/node_modules/npm/bin/npx-cli.js" "$@"
-          EOF
-          chmod +x ../output/bin/npm ../output/bin/npx
+          cat > ../output/bin/npm << 'NPMEOF'
+#!/system/bin/sh
+NODE="$(dirname "$0")/node"
+NPM="$(dirname "$0")/../lib/node_modules/npm/bin/npm-cli.js"
+exec "$NODE" "$NPM" "$@"
+NPMEOF
+          cat > ../output/bin/npx << 'NPXEOF'
+#!/system/bin/sh
+NODE="$(dirname "$0")/node"
+NPX="$(dirname "$0")/../lib/node_modules/npm/bin/npx-cli.js"
+exec "$NODE" "$NPX" "$@"
+NPXEOF
+          chmod +x ../output/bin/npm ../output/bin/npx ../output/bin/node
           
           cd ..
           zip -r node-v20-android-arm.zip output/
@@ -181,9 +180,7 @@ jobs:
         run: |
           wget -q https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
           unzip -q android-ndk-r25c-linux.zip -d $HOME
-          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r25c" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$HOME/android-ndk-r25c" >> $GITHUB_ENV
-          echo "ANDROID_NDK=$HOME/android-ndk-r25c" >> $GITHUB_ENV
+          echo "NDK=$HOME/android-ndk-r25c" >> $GITHUB_ENV
 
       - name: Download Node.js Source
         run: |
@@ -194,14 +191,14 @@ jobs:
         run: |
           cd node-v20.11.0
           
-          TOOLCHAIN=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
+          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin
           
           export CC="$TOOLCHAIN/x86_64-linux-android21-clang"
           export CXX="$TOOLCHAIN/x86_64-linux-android21-clang++"
           export AR="$TOOLCHAIN/llvm-ar"
           export RANLIB="$TOOLCHAIN/llvm-ranlib"
           export LINK="$CXX"
-          export GYP_DEFINES="android_ndk_path=$ANDROID_NDK_ROOT"
+          export GYP_DEFINES="android_ndk_path=$NDK"
           
           python3 configure.py \
             --dest-cpu=x64 \
@@ -211,25 +208,28 @@ jobs:
             --without-inspector \
             --without-node-snapshot \
             --without-node-code-cache \
-            --openssl-no-asm \
-            --android-ndk-path=$ANDROID_NDK_ROOT
+            --openssl-no-asm
           
-          make -j$(nproc) 2>&1 | tail -50
+          make -j$(nproc)
           
           mkdir -p ../output/bin
+          mkdir -p ../output/lib/node_modules
           cp out/Release/node ../output/bin/node
-          cp -r lib ../output/ 2>/dev/null || true
-          cp -r deps/npm ../output/lib/node_modules/ 2>/dev/null || true
+          cp -r deps/npm ../output/lib/node_modules/npm 2>/dev/null || true
           
-          cat > ../output/bin/npm << 'EOF'
-          #!/system/bin/sh
-          exec "$(dirname "$0")/node" "$(dirname "$0")/../lib/node_modules/npm/bin/npm-cli.js" "$@"
-          EOF
-          cat > ../output/bin/npx << 'EOF'
-          #!/system/bin/sh
-          exec "$(dirname "$0")/node" "$(dirname "$0")/../lib/node_modules/npm/bin/npx-cli.js" "$@"
-          EOF
-          chmod +x ../output/bin/npm ../output/bin/npx
+          cat > ../output/bin/npm << 'NPMEOF'
+#!/system/bin/sh
+NODE="$(dirname "$0")/node"
+NPM="$(dirname "$0")/../lib/node_modules/npm/bin/npm-cli.js"
+exec "$NODE" "$NPM" "$@"
+NPMEOF
+          cat > ../output/bin/npx << 'NPXEOF'
+#!/system/bin/sh
+NODE="$(dirname "$0")/node"
+NPX="$(dirname "$0")/../lib/node_modules/npm/bin/npx-cli.js"
+exec "$NODE" "$NPX" "$@"
+NPXEOF
+          chmod +x ../output/bin/npm ../output/bin/npx ../output/bin/node
           
           cd ..
           zip -r node-v20-android-x64.zip output/
